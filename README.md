@@ -12,8 +12,9 @@ This README is a full project guide for the current repository state.
 4. [Configuration Schema](#configuration-schema)
 5. [Build And Run](#build-and-run)
 6. [Input Format](#input-format)
-7. [Development Notes](#development-notes)
-8. [Troubleshooting](#troubleshooting)
+7. [Limitations](#limitations)
+8. [Development Notes](#development-notes)
+9. [Troubleshooting](#troubleshooting)
 
 ## Project Goals
 
@@ -157,6 +158,8 @@ Current implementation is educational and not a full tournament-compliant engine
 2. En passant logic is incomplete.
 3. No full king-safety legality filtering for all pseudo-legal moves.
 4. Promotion is fixed to queen.
+
+## Development Notes
 
 ### Fast tuning points
 
