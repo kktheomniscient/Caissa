@@ -12,9 +12,8 @@ This README is a full project guide for the current repository state.
 4. [Configuration Schema](#configuration-schema)
 5. [Build And Run](#build-and-run)
 6. [Input Format](#input-format)
-7. [Limitations](#limitations)
-8. [Development Notes](#development-notes)
-9. [Troubleshooting](#troubleshooting)
+7. [Development Notes](#development-notes)
+8. [Troubleshooting](#troubleshooting)
 
 ## Project Goals
 
