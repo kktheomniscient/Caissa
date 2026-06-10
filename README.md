@@ -1,94 +1,178 @@
-# Caissa - Chess Engine
+# Caissa Chess Engine
 
-A compact chess engine written in C++ that uses a JSON configuration for board representation, move generation and evaluation.
+Caissa is a lightweight console chess engine written in C++. The project is intentionally compact and data-driven: movement rules, board mapping, piece values, and display glyphs are all provided through JSON configuration.
 
-**Features**
+This README is a full project guide for the current repository state.
 
-- Simple console play loop (human vs engine)
-- FEN-based initial position read from [settings.json](settings.json)
-- Move generation and minimax-style recursive search (fixed depth in `play()`)
-- Piece-square tables and configurable piece weights via JSON
+## Contents
 
-**Requirements**
+1. [Project Goals](#project-goals)
+2. [Repository Structure](#repository-structure)
+3. [How The Engine Works](#how-the-engine-works)
+4. [Configuration Schema](#configuration-schema)
+5. [Build And Run](#build-and-run)
+6. [Input Format](#input-format)
+7. [Limitations](#limitations)
+8. [Development Notes](#development-notes)
+9. [Troubleshooting](#troubleshooting)
 
-- C++ compiler (g++/MinGW recommended on Windows)
-- Single-header JSON library `json.hpp` (nlohmann) present in the project root
-- Windows console: code sets UTF-8 output code page (`SetConsoleOutputCP(CP_UTF8)`) for piece glyphs
+## Project Goals
 
-**Files**
+- Provide a playable human-vs-engine command-line chess program.
+- Keep implementation understandable for learning and experimentation.
+- Use JSON for fast tuning of movement and evaluation behavior.
 
-- [engine_final.cpp](engine_final.cpp) — main engine source and console UI
-- [engine.cpp](engine.cpp) — alternate/older source (kept for reference)
-- [json.hpp](json.hpp) — nlohmann JSON single-header (required)
-- [settings.json](settings.json) — engine configuration (FEN, move directions, weights, etc.)
-- sum.py — small helper script (if present)
+## Repository Structure
 
-**Build**
+Top-level project files:
 
-- Using g++ (example):
+- [engine_final.cpp](engine_final.cpp): Main engine implementation and program entry point.
+- [settings.json](settings.json): Runtime data for FEN, piece movement offsets, colors, weights, PST, and board coordinate mapping.
+- [json.hpp](json.hpp): nlohmann single-header JSON dependency.
+- [engine_final.exe](engine_final.exe): Compiled Windows executable currently committed in the repo.
+- [README.md](README.md): Project documentation.
 
-```bash
-g++ -std=c++17 engine_final.cpp -o engine.exe
-```
+Editor/build configuration:
 
-- Or use the provided VS Code build task: run the `C/C++: g++.exe build active file` task while `engine_final.cpp` is the active editor.
+- [.vscode/tasks.json](.vscode/tasks.json): Build task using `C:\MinGW\bin\g++.exe`.
+- [.vscode/c_cpp_properties.json](.vscode/c_cpp_properties.json): IntelliSense settings (`compilerPath` currently set to `cl.exe`).
+- [.vscode/settings.json](.vscode/settings.json): File associations for C++ editing support.
 
-**Run**
+## How The Engine Works
 
-- Ensure `settings.json` and `json.hpp` are in the same directory as the binary.
-- From PowerShell or CMD:
+### High-level flow
+
+1. Load [settings.json](settings.json).
+2. Parse side-to-move from the configured FEN.
+3. Build an internal mailbox-style board representation.
+4. Print board in Unicode chess glyphs.
+5. Accept a player move.
+6. Search for an engine response at fixed depth.
+7. Repeat until the current termination condition is reached.
+
+### Core data structures
+
+- `chess_move`: stores `source`, `target`, `piece`, and `captured`.
+- `board` (string): 120-cell mailbox representation with padding and newline delimiters.
+- `side`: side to move (`0` white, `1` black).
+- `move_history`: history used for undo and limited special-case logic.
+
+### Board model
+
+- Uses a 10x12 mailbox layout flattened into a string.
+- Real board squares are represented by piece chars or `.` for empty.
+- Padding/offboard boundaries are represented with spaces/newlines.
+- Square name translation (for user input and output) is driven by `coordinates` in JSON.
+
+### Move generation
+
+`genMoves()` builds pseudo-legal moves:
+
+- Sliding pieces iterate along configured direction offsets.
+- Leapers (kings, knights, pawns in this implementation) stop after one step.
+- Friendly squares block movement.
+- Captures are included and then stop on that ray.
+- Pawn movement includes directional push/capture handling and initial two-square push checks.
+
+Important: the generator does not fully enforce chess legality with king-safety validation.
+
+### Make/unmake
+
+- `makeMove(...)` applies move, flips side, and pushes history.
+- `takeBack(...)` restores source/target squares, flips side, and pops history.
+- Promotion is currently auto-queen using rank arrays from config.
+
+### Evaluation
+
+`eval()` computes score using:
+
+- Material via `weights`.
+- Positional adjustments via `pst` (piece-square table).
+- Sign adjustment based on side-to-move.
+
+### Search
+
+- Negamax recursion with alpha-beta pruning.
+- Root search records best source/target in global members.
+- Gameplay currently uses fixed depth `searchRoot(3)`.
+
+## Configuration Schema
+
+All required engine settings are in [settings.json](settings.json):
+
+- `fen`: Initial FEN string; side-to-move is parsed from this.
+- `directions`: Per-piece move offsets for mailbox board indexing.
+- `colors`: Piece-to-color map.
+- `weights`: Material values used by evaluation.
+- `pst`: 120-entry table used for positional scoring.
+- `rank_2`, `rank_7`: Pawn start-rank index arrays.
+- `coordinates`: Index-to-algebraic mapping (`a1`, `e4`, etc.).
+- `pieces`: Display mapping for Unicode piece rendering and board symbols.
+
+If any of these keys are missing or malformed, runtime behavior may be incorrect or unstable.
+
+## Build And Run
+
+### Requirements
+
+- Windows (current code includes `windows.h` and uses `SetConsoleOutputCP(CP_UTF8)`).
+- C++17 compiler.
+- [json.hpp](json.hpp) present in project root.
+- [settings.json](settings.json) present in working directory when running.
+
+### Build using VS Code task
+
+Use task defined in [.vscode/tasks.json](.vscode/tasks.json):
+
+- `C/C++: g++.exe build active file`
+
+Make sure [engine_final.cpp](engine_final.cpp) is active before running the task.
+
+### Build manually
 
 ```powershell
-.\engine.exe
+C:\MinGW\bin\g++.exe -std=c++17 -g engine_final.cpp -o engine_final.exe
 ```
 
-- The program prints the board using Unicode piece glyphs and prompts:
+### Run
 
+```powershell
+.\engine_final.exe
 ```
-   your move:
-```
 
-- Enter moves in coordinate notation, e.g. `e2e4` (source square + target square). The engine will play a reply.
+## Input Format
 
-**Configuration (`settings.json`)**
-The engine is driven by the JSON file:
+Enter moves as 4-character coordinate strings:
 
-- `fen` — starting FEN string. The engine reads the side-to-move from the FEN.
-- `directions` — movement offsets per piece (engine uses a 120-square board representation; offsets are indexed accordingly).
-- `colors` — numeric color mapping for pieces (0 = white, 1 = black).
-- `weights` — piece values used in evaluation.
-- `pst` — piece-square table (120 entries) used in evaluation.
-- `rank_2`, `rank_7` — lists of square indices used to detect initial pawn ranks for double-push and promotion logic.
-- `coordinates` — mapping of 120-board indices to algebraic coordinates (used for input/output)
-- `pieces` — printable glyphs used when rendering the board
+- Example: `e2e4`
+- First two chars = source square
+- Last two chars = target square
 
-Modify `settings.json` to experiment with different evaluation parameters or to load a custom FEN position.
+Current input validation is minimal. Invalid or unknown coordinates are not safely rejected in all cases.
 
-**How the engine works (brief)**
+## Limitations
 
-- Board representation: the code converts a FEN into a padded 120-element string board and uses offset-based movement (classic 10x12 mailbox).
-- Move generation: `genMoves()` walks piece offsets to build pseudo-legal moves (no full check legality filtering).
-- Search: recursive negamax-style search with fixed depth (depth is currently hard-coded in `play()` where `search(3)` is called).
-- Evaluation: material + PST values with sign adjusted by side to move.
+Current implementation is educational and not a full tournament-compliant engine.
 
-**Limitations & Known Issues**
+1. No castling support.
+2. En passant logic is incomplete.
+3. No full king-safety legality filtering for all pseudo-legal moves.
+4. Promotion is fixed to queen.
 
-- No castling or full check legality detection; move generation may include illegal moves that are not filtered by check.
-- En passant and some promotion edge-cases may be incomplete depending on the source file version.
-- Input validation is minimal; malformed input may crash or behave unexpectedly.
-- Single-threaded and intended for small depths; not tuned for performance.
+### Fast tuning points
 
-**Development & Experimentation**
+- Change engine strength/speed by adjusting `searchRoot(3)` depth in [engine_final.cpp](engine_final.cpp).
+- Tune style by editing `weights` and `pst` in [settings.json](settings.json).
+- Load custom positions by changing `fen` in [settings.json](settings.json).
 
-- To change search depth, edit the `search(...)` call used in `play()` (look for `search(3)`), rebuild and run.
-- To add features (castling, en passant, promotion choices, quiescence, alpha-beta), search the repository for `genMoves`, `makeMove`, and `takeBack` and implement state changes carefully (store historic state in the move structure to allow undo).
+## Troubleshooting
 
-**Contributing**
+### Engine fails to start or load position
 
-- This project is educational — feel free to open issues or submit PRs for bug fixes and features. Keep changes small and focused.
+- Ensure [settings.json](settings.json) exists and contains valid JSON.
+- Run executable from project root so relative file loading works.
 
-**License**
+### Unicode pieces do not render correctly
 
-- MIT License — copy/adapt as needed.
-
----
+- Use a UTF-8 capable terminal and font.
+- Keep the Windows code-page call in [engine_final.cpp](engine_final.cpp).
