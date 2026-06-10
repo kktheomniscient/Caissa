@@ -284,30 +284,51 @@ class chess{
                     return score;
         }
 
-        int search(int depth)
+        int search(int depth, int alpha, int beta)
         {
             if(depth == 0)
                 return eval();
-            int bestScore = INT_MIN;
-            int bestSource = -1, bestTarget = -1;
+
             vector<chess_move> moves = genMoves();
             if(moves.empty())
                 return INF;
-            for(chess_move move:moves)
+            
+            for(chess_move move : moves)
             {
                 makeMove(move);
-                int score = -search(depth - 1);
+                int score = -search(depth - 1, -beta, -alpha);
                 takeBack(move);
+                
+                if(score > alpha)
+                    alpha = score;
+                
+                if(alpha >= beta)
+                    break;
+            }
+            
+            return alpha;
+        }
+
+        int searchRoot(int depth)
+        {
+            int alpha = -INF, beta = INF;
+            vector<chess_move> moves = genMoves();
+            int bestScore = INT_MIN;
+            
+            for(chess_move move : moves)
+            {
+                makeMove(move);
+                int score = -search(depth - 1, -beta, -alpha);
+                takeBack(move);
+                
                 if(score > bestScore)
                 {
                     bestScore = score;
-                    bestSource = move.source;
-                    bestTarget = move.target;
+                    gBestSource = move.source;
+                    gBestTarget = move.target;
+                    alpha = max(alpha, score);
                 }
             }
-            gBestSource = bestSource;
-            gBestTarget = bestTarget;
-            // cout << gBestSource;
             return bestScore;
         }
 
@@ -345,7 +366,7 @@ class chess{
                 makeMove(userMove);
                 cout << prettyBoard();
 
-                int score = search(3);
+                int score = searchRoot(3);
                 chess_move move{gBestSource, gBestTarget, board[gBestSource], board[gBestTarget]};
                 makeMove(move);
                 cout << prettyBoard();
